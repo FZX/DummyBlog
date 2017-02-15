@@ -94,65 +94,82 @@ class Settings(Base):
     site_subname = Column(String(300), default="Most amazing things is here.")
     updated_on = Column(DateTime(), default=datetime.now, onupdate=datetime.now)
 
+#### Settings global variables ####
+on_page_articles = 5
+
 
 #### Functions ####
 
 def select_articles(page=None):
-    offset_num = 10
+    offset_num = on_page_articles
     if page:
-        offset_num = 10 * page
+        offset_num = on_page_articles * page
 
     article_count = session.query(func.count(Article.id)).first()
 
     off_num = article_count[0] - offset_num
     off_num = off_num if off_num >= 0 else 0
 
-    articles = session.query(Article.title, Article.subtitle)
-    articles = articles.limit(10)
+    articles = session.query(Article.id, Article.title, Article.subtitle,
+                             Article.created_on, Author.username, Author.id)
+    articles = articles.outerjoin(Author)
+    # articles = articles.order_by(desc(Article.id))
+    articles = articles.limit(on_page_articles)
     articles = articles.offset(off_num)
     articles = articles.all()
 
-    pages = ceil(article_count[0] / 10)
+    pages = ceil(article_count[0] / on_page_articles)
 
-    return articles, pages
+    return articles[::-1], pages
 
+def get_article(article_id):
+    query = session.query(Article, Author.id, Author.username)
+    query = query.outerjoin(Author)
+    query = query.filter(Article.id == article_id)
+    article = query.first()
+    return article
 
 
 @route("/")
-def index(db):
-    articles, pages = select_articles()
-    return articles
-    return template("./views/index.html")
+@route("/<page:int>")
+def index(page=None):
+    page = page if page is not None else 1
+    articles, pages = select_articles(page=page)
+    return template("./views/index.html", articles=articles, max_pages=pages,
+                    current_page=page)
 
 
-@route("/post")
-def index():
-    return template("./views/post.html")
+@route("/post/<id:int>")
+def post(id):
+    article = get_article(id)
+    return template("./views/post.html", article=article)
 
 
 @route("/about")
-def index():
+def about():
     return template("./views/about.html")
 
 
 @route("/contact")
-def index():
+def contact():
     return template("./views/contact.html")
 
 
+@route("/contact", method="POST")
+def contactme(db):
+    name = request.forms.name
+    email = request.forms.email
+    message = request.forms.message
+    ip = request.environ.get("REMOTE_ADDR")
 
-
-
-
-
-
-
-
-
-
-
-
-
+    data = Contact(
+        message=message,
+        email=email,
+        guest_ip=ip
+    )
+    db.add(data)
+    db.commit()
+    return {"status": "OK"}
 
 
 #### Static files #####
