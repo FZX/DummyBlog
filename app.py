@@ -10,6 +10,7 @@ from bottle import (route, run, template, static_file, request, response,
 from bottle.ext.sqlalchemy import Plugin
 from math import ceil
 from uuid import uuid4
+from crypt import crypt
 from datetime import datetime
 
 from sqlalchemy import (Table, Column, Integer, String, DateTime, ForeignKey,
@@ -33,6 +34,7 @@ class Article(Base):
     id = Column(Integer(), Sequence("articles_id_seq"), primary_key=True)
     title = Column(String(1000), index=True)
     subtitle = Column(String(500), index=True)
+    header_image = Column(String(500))
     article = Column(String(), index=True)
     category_id = Column(Integer(), ForeignKey("category.id"), default=1)
     author_id = Column(Integer(), ForeignKey("authors.id"))
@@ -53,6 +55,7 @@ class Author(Base):
     username = Column(String(15), nullable=False, unique=True)
     password = Column(String(25), nullable=False)
     email = Column(String(255), nullable=False, unique=True)
+    session_id = Column(String(36))
     created_on = Column(DateTime(), default=datetime.now)
     updated_on = Column(DateTime(), default=datetime.now, onupdate=datetime.now)
 
@@ -96,9 +99,22 @@ class Settings(Base):
 
 #### Settings global variables ####
 on_page_articles = 5
-
+# cookie_secret = "`m^2nkxJ>kU}>?NJWb(7'WF}(]p@?/f$2qVS))`"
+cookie_secret = "dada"
+cookie_age = 604800
 
 #### Functions ####
+
+def check_session():
+
+    session_id = request.get_cookie("sessid", secret=cookie_secret)
+    if session_id:
+        author = session.query(Author.id, Author.username)
+        author = author.filter(Author.session_id == session_id).first()
+        if author:
+            return author.id, author.username
+    return None
+
 
 def select_articles(page=None):
     offset_num = on_page_articles
@@ -172,6 +188,45 @@ def contactme(db):
     return {"status": "OK"}
 
 
+@route("/admin")
+def admin():
+    auth = check_session()
+    if auth:
+        return "Hello, Admin!"
+    else:
+        redirect("/admin/login")
+
+@route("/admin/login")
+def admin_login():
+    auth = check_session()
+    if auth is None:
+        return template("./views/admin/login.html")
+    else:
+        redirect("/admin")
+
+
+@route("/admin/login", method="POST")
+def admin_do_login(db):
+    username = request.forms.username
+    password = crypt(request.forms.password, salt="MD5")
+    if username == "" or password == "":
+        return {"status": "FAIL"}
+
+    check_user = db.query(Author).filter(and_(Author.username == username,
+                                              Author.password == password))
+    check_user = check_user.first()
+
+    if check_user:
+        session_id = str(uuid4())
+        response.set_cookie("sessid", session_id, secret=cookie_secret,
+                            max_age=cookie_age)
+
+        check_user.session_id = session_id
+        db.commit()
+        return {"status": "OK"}
+    else:
+        return {"status": "FAIL"}
+
 #### Static files #####
 @route("/images/<filename>")
 def get_images(filename):
@@ -188,14 +243,12 @@ def get_css(filename):
     return css files"""
     return static_file(filename, root="./views/static/css")
 
-
 @route("/js/<filename>")
 def get_js(filename):
     """Callback for static files.
 
     return scripts files"""
     return static_file(filename, root="./views/static/js")
-
 
 @route("/fonts/<filename>")
 def get_fonts(filename):
