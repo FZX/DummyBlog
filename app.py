@@ -130,7 +130,8 @@ def select_articles(page=None):
     articles = session.query(Article.id, Article.title, Article.subtitle,
                              Article.created_on, Author.username, Author.id)
     articles = articles.outerjoin(Author)
-    # articles = articles.order_by(desc(Article.id))
+    articles = articles.order_by(Article.created_on)
+    articles = articles.filter(Article.draft == False)
     articles = articles.limit(on_page_articles)
     articles = articles.offset(off_num)
     articles = articles.all()
@@ -173,7 +174,7 @@ def contact():
 
 
 @route("/contact", method="POST")
-def contactme(db):
+def contact_me(db):
     name = request.forms.name
     email = request.forms.email
     message = request.forms.message
