@@ -27,14 +27,15 @@ $(function() {
                 success: function(response) {
                     if (response.status === "OK"){
                         // Success message
-                        $('#success').html("<div class='alert alert-success'>");
-                        $('#success > .alert-success').html("<button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;")
-                            .append("</button>");
-                        $('#success > .alert-success')
-                            .append("<strong>You have successfully loged in. Redirecting...</strong>");
-                        $('#success > .alert-success')
-                            .append('</div>');
-                        setTimeout(function(){ window.location = "/admin"; }, 2000);
+                        // $('#success').html("<div class='alert alert-success'>");
+                        // $('#success > .alert-success').html("<button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;")
+                        //     .append("</button>");
+                        // $('#success > .alert-success')
+                        //     .append("<strong>You have successfully loged in. Redirecting...</strong>");
+                        // $('#success > .alert-success')
+                        //     .append('</div>');
+                        // setTimeout(function(){ window.location = "/admin"; }, 2000);
+                        location.replace("/admin");
                     } else if (response.status === "FAIL") {
                         $('#success').html("<div class='alert alert-danger'>");
                         $('#success > .alert-danger').html("<button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;")

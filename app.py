@@ -36,6 +36,7 @@ class Article(Base):
     subtitle = Column(String(500), index=True)
     header_image = Column(String(500))
     article = Column(String(), index=True)
+    draft = Column(Boolean(), default=False)
     category_id = Column(Integer(), ForeignKey("category.id"), default=1)
     author_id = Column(Integer(), ForeignKey("authors.id"))
     created_on = Column(DateTime(), default=datetime.now)
@@ -189,12 +190,104 @@ def contactme(db):
 
 
 @route("/admin")
-def admin():
+def admin(db):
     auth = check_session()
     if auth:
-        return "Hello, Admin!"
+        count_posts = db.query(func.count(Article.id))
+        count_posts = count_posts.filter(Article.draft == False).first()
+
+        count_drafts = db.query(func.count(Article.id))
+        count_drafts = count_drafts.filter(Article.draft == True).first()
+
+        count_m = db.query(func.count(Contact.id))
+        total_new_m = count_m.filter(Contact.seen == False).first()
+        total_messages = count_m.first()
+
+        latest_article = db.query(Article.title, Article.article,
+                               Article.created_on)
+        latest_post = latest_article.filter(Article.draft == False)
+        latest_post = latest_post.order_by(Article.id.desc()).limit(1).first()
+
+        latest_draft = latest_article.filter(Article.draft == True)
+        latest_draft = latest_draft.order_by(Article.id.desc()).limit(1).first()
+
+        message = db.query(Contact.email, Contact.message, Contact.created_on)
+        newest_message = message.filter(Contact.seen == False)
+        newest_message = newest_message.order_by(Contact.id.desc()).limit(1)
+        newest_message = newest_message.first()
+
+        newest_seen_message = message.filter(Contact.seen == True)
+        newest_seen_message = newest_seen_message.order_by(Contact.id.desc())
+        newest_seen_message = newest_seen_message.limit(1)
+        newest_seen_message = newest_seen_message.first()
+
+
+        return template("./views/admin/index.html", count_posts=count_posts[0],
+                        count_drafts=count_drafts[0], total_new_m=total_new_m[0],
+                        total_messages=total_messages[0],
+                        latest_post=latest_post, latest_draft=latest_draft,
+                        newest_message=newest_message,
+                        newest_seen_message=newest_seen_message)
     else:
         redirect("/admin/login")
+
+
+@route("/admin/tables")
+def admin_tables():
+    auth = check_session()
+    if auth:
+        return template("./views/admin/tables.html")
+    else:
+        redirect("/admin/login")
+
+@route("/admin/forms")
+def admin_forms():
+    auth = check_session()
+    if auth:
+        return template("./views/admin/forms.html")
+    else:
+        redirect("/admin/login")
+
+@route("/admin/newpost")
+def admin_new_post():
+    auth = check_session()
+    if auth:
+        return template("./views/admin/blank.html")
+    else:
+        redirect("/admin/login")
+
+@route("/admin/posts")
+def admin_posts():
+    auth = check_session()
+    if auth:
+        return template("./views/admin/blank.html")
+    else:
+        redirect("/admin/login")
+
+@route("/admin/drafts")
+def admin_drafts():
+    auth = check_session()
+    if auth:
+        return template("./views/admin/blank.html")
+    else:
+        redirect("/admin/login")
+
+@route("/admin/messages")
+def admin_messages():
+    auth = check_session()
+    if auth:
+        return template("./views/admin/blank.html")
+    else:
+        redirect("/admin/login")
+
+@route("/admin/blank")
+def admin_blank():
+    auth = check_session()
+    if auth:
+        return template("./views/admin/blank.html")
+    else:
+        redirect("/admin/login")
+
 
 @route("/admin/login")
 def admin_login():
@@ -227,6 +320,22 @@ def admin_do_login(db):
     else:
         return {"status": "FAIL"}
 
+@route("/admin/logout")
+def admin_logout(db):
+    auth = check_session()
+    if auth is not None:
+        author = db.query(Author).filter(Author.id == auth[0])
+        author = author.first()
+        author.session_id = str(uuid4())
+        db.commit()
+        response.set_cookie("sessid", "", secret=cookie_secret)
+        redirect("/")
+    else:
+        reirect("/")
+
+
+
+
 #### Static files #####
 @route("/images/<filename>")
 def get_images(filename):
@@ -236,19 +345,19 @@ def get_images(filename):
     """
     return static_file(filename, root="./views/static/img")
 
-@route("/css/<filename>")
-def get_css(filename):
+@route("/dummy/<filename:path>")
+def get_css_js(filename):
     """Callback for static files.
 
-    return css files"""
-    return static_file(filename, root="./views/static/css")
+    return css and js files"""
+    return static_file(filename, root="./views/static/dummy")
 
-@route("/js/<filename>")
-def get_js(filename):
+@route("/vendor/<filename:path>")
+def get_vendor(filename):
     """Callback for static files.
 
-    return scripts files"""
-    return static_file(filename, root="./views/static/js")
+    return vendor files"""
+    return static_file(filename, root="./views/static/vendor")
 
 @route("/fonts/<filename>")
 def get_fonts(filename):
