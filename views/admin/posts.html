@@ -6,6 +6,19 @@
                 <div class="row">
                     <div class="col-lg-12">
                         <h1 class="page-header">Posts</h1>
+                        <ol class="breadcrumb">
+                            <li>
+                                <i class="fa fa-dashboard"></i>  <a href="/admin">Dashboard</a>
+                            </li>
+                            <li class="active">
+                                %if mode == "post":
+                                <i class="fa fa-file-text"></i>  Posts
+                                %elif mode == "draft":
+                                <i class="fa fa-sticky-note"></i>  Drafts
+
+                                %end
+                            </li>
+                        </ol>
                     </div>
                     <!-- /.col-lg-12 -->
                 </div>

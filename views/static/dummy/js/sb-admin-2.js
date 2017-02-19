@@ -45,3 +45,17 @@ $(function() {
         }
     }
 });
+
+//refresh button
+
+$("#refresh").click(function(){
+    location.reload();
+});
+
+
+$(".message").on("click", "#removeMessage", function(){
+    console.log(this.id);
+    $.post("/admin/messages", {msgid : $("#messageid").val()}).then(function(){
+        location.replace("/admin/messages");
+    });
+});

@@ -54,6 +54,8 @@ class Author(Base):
 
     id = Column(Integer(), Sequence("authors_id_seq"), primary_key=True)
     username = Column(String(15), nullable=False, unique=True)
+    firstname = Column(String(15), nullable=False)
+    lastname = Column(String(15), nullable=False)
     password = Column(String(25), nullable=False)
     email = Column(String(255), nullable=False, unique=True)
     session_id = Column(String(36))
@@ -80,6 +82,7 @@ class Contact(Base):
     __tablename__ = "contact"
 
     id = Column(Integer(), Sequence('contact_id_seq'), primary_key=True)
+    name = Column(String(100), nullable=False)
     message = Column(String(500), nullable=False)
     email = Column(String(100), nullable=False)
     guest_ip = Column(String(255), nullable=True)
@@ -100,8 +103,7 @@ class Settings(Base):
 
 #### Settings global variables ####
 on_page_articles = 5
-# cookie_secret = "`m^2nkxJ>kU}>?NJWb(7'WF}(]p@?/f$2qVS))`"
-cookie_secret = "dada"
+cookie_secret = "`m^2nkxJ>kU}>?NJWb(7'WF}(]p@?/f$2qVS))`"
 cookie_age = 604800
 BaseRequest.MEMFILE_MAX = 1024 * 1024
 #### Functions ####
@@ -124,14 +126,6 @@ def select_articles(page=None, search=None):
 
     article_count = session.query(func.count(Article.id))
     article_count = article_count.filter(Article.draft == False)
-    if search:
-        search = "%" + search + "%"
-        article_count = article_count.filter(or_(Article.title.ilike(search),
-                                                 Article.article.ilike(search)))
-    article_count = article_count.first()
-
-    off_num = article_count[0] - offset_num
-    off_num = off_num if off_num >= 0 else 0
 
     articles = session.query(Article.id, Article.title, Article.subtitle,
                              Article.created_on, Author.username, Author.id)
@@ -140,6 +134,11 @@ def select_articles(page=None, search=None):
         search = "%" + search + "%"
         articles = articles.filter(or_(Article.title.ilike(search),
                                        Article.article.ilike(search)))
+        article_count = article_count.filter(or_(Article.title.ilike(search),
+                                                 Article.article.ilike(search)))
+    article_count = article_count.first()
+    off_num = article_count[0] - offset_num
+    off_num = off_num if off_num >= 0 else 0
     articles = articles.order_by(Article.created_on)
     articles = articles.filter(Article.draft == False)
     articles = articles.limit(on_page_articles)
@@ -218,6 +217,7 @@ def contact_me(db):
     ip = request.environ.get("REMOTE_ADDR")
 
     data = Contact(
+        name=name,
         message=message,
         email=email,
         guest_ip=ip
@@ -317,7 +317,6 @@ def editor_action(db):
             article = db.query(Article).filter(and_(Article.id == id,
                                                     Article.author_id == auth[0]))
             article = article.first()
-            print(article)
             if article.draft == True and article.draft != draft:
                 article.created_on = datetime.now()
             article.title = title
@@ -366,12 +365,106 @@ def admin_remove(db):
         return {"status": "you do not have rights!"}
 
 @route("/admin/messages")
-def admin_messages():
+@route("/admin/messages/<page:int>")
+def admin_messages(db, page=None):
     auth = check_session()
     if auth:
-        return template("./views/admin/blank.html")
+        show = request.query.show
+        if show:
+            message = db.query(Contact).filter(Contact.id == show).first()
+            message.seen = True
+            return template("./views/admin/message-show.html", message=message)
+        else:
+            page = page if page is not None else 1
+            offset_num = 10
+            if page:
+                offset_num = 10 * page
+
+            messages_count = db.query(func.count(Contact.id)).first()
+            off_num = messages_count[0] - offset_num
+            off_num = off_num if off_num >= 0 else 0
+
+            messages = db.query(Contact.name, Contact.message, Contact.created_on, Contact.seen, Contact.id)
+            messages = messages.limit(10)
+            messages = messages.offset(off_num)
+            messages = messages.all()
+
+            pages = ceil(messages_count[0] / 10)
+
+            return template("./views/admin/contact.html", messages=messages,
+                            pages=pages, page=page)
     else:
         redirect("/admin/login")
+
+@route("/admin/messages", method="POST")
+def remove_message(db):
+    auth = check_session()
+    if auth:
+        msgid = request.forms.msgid
+        message = db.query(Contact).filter(Contact.id == msgid).first()
+        db.delete(message)
+        db.commit()
+        return {"status": "OK"}
+    else:
+        redirect("/admin/login")
+
+
+@route("/admin/settings")
+def admin_settings(db):
+    auth = check_session()
+    if auth:
+        mode = request.query.mode
+        if mode == "user":
+            author = db.query(Author).filter(Author.id == auth[0]).first()
+
+            return template("./views/admin/usersettings.html", user=author)
+
+        redirect("/admin")
+    else:
+        redirect("/admin/login")
+
+@route("/admin/settings", method="POST")
+def admin_settings_update(db):
+    auth = check_session()
+    if auth:
+        mode = request.query.mode
+        if mode == "user":
+            firstname = request.forms.firstname
+            lastname = request.forms.lastname
+            username = request.forms.username
+            email = request.forms.email
+            newpassword = request.forms.newpassword
+            oldpassword = request.forms.oldpassword
+
+            if (not firstname and not lastname and not username and not email
+                and not newpassword and not oldpassword):
+                redirect("/admin")
+
+            author = db.query(Author).filter(Author.id == auth[0]).first()
+
+            if firstname:
+                author.firstname = firstname
+            if lastname:
+                author.lastname = lastname
+            if username:
+                author.username = username
+            if email:
+                author.email = email
+            if oldpassword:
+                print(oldpassword, "old")
+                md_oldpassword = crypt(oldpassword, salt="MD5")
+                if md_oldpassword == author.password:
+                    print("match")
+                    if newpassword:
+                        print("new", newpassword)
+                        md_newpassword = crypt(newpassword, salt="MD5")
+                        author.password = md_newpassword
+                    else:
+                        redirect("/admin")
+                else:
+                    redirect("/admin")
+            db.commit()
+            redirect("/admin/settings?mode=user")
 
 
 @route("/admin/login")

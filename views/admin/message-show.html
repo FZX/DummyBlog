@@ -1,0 +1,105 @@
+%include("./views/admin/header.html")
+
+        <!-- Page Content -->
+        <div id="page-wrapper">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <h1 class="page-header">Blank</h1>
+                        <ol class="breadcrumb">
+                            <li>
+                                <i class="fa fa-dashboard"></i>  <a href="/admin">Dashboard</a>
+                            </li>
+                            <li>
+                                <i class="fa fa-envelope"></i>  <a href="/admin/messages">Messages</a>
+                            </li>
+                            <li class="active">
+                                <i class="fa fa-envelope-open"></i> Read Message
+                            </li>
+                        </ol>
+                    </div>
+                    <!-- /.col-lg-12 -->
+                </div>
+                <!-- /.row -->
+<div class="row">
+
+			<!-- start: Main Menu -->
+
+			<!-- end: Main Menu -->
+
+			<!-- start: Content -->
+			<div class="col-md-12 col-sm-11 main" style="min-height: 315px;">
+
+
+			<div class="row inbox">
+
+
+				<!--/.col-->
+
+				<div class="col-md-12">
+
+					<div class="panel panel-default">
+
+						<div class="panel-body message">
+
+							<span class="btn-group">
+							  	<button class="btn btn-default"><span class="fa fa-star"></span></button>
+							  	<button class="btn btn-default"><span class="fa fa-star-o"></span></button>
+								<button class="btn btn-default"><span class="fa fa-bookmark-o"></span></button>
+							</span>
+
+
+
+							<button id="removeMessage" class="btn btn-default"><span class="fa fa-trash-o"></span></button>
+
+
+
+                            <input type="hidden" id="messageid" value="{{message.id}}" />
+							<div class="header">
+
+
+
+
+								<div class="from">
+									<span>{{message.name}}</span>
+									{{message.email}}
+								</div>
+								<div class="date"><span class="fa fa-paper-clip"></span><span class="badge">{{str(message.created_on)[:-10]}}</span></div>
+
+								<div class="menu"></div>
+
+							</div>
+
+							<div class="content">
+								<p>
+									{{message.message}}
+								</p>
+							</div>
+
+
+
+
+
+						</div>
+
+					</div>
+
+				</div><!--/.col-->
+
+			</div><!--/row-->
+
+
+
+			</div>
+			<!-- end: Content -->
+
+				</div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- /#page-wrapper -->
+
+    </div>
+    <!-- /#wrapper -->
+
+%include("./views/admin/footer.html")

@@ -1,0 +1,116 @@
+%include("./views/admin/header.html")
+
+        <!-- Page Content -->
+        <div id="page-wrapper">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <h1 class="page-header">Messages</h1>
+                        <ol class="breadcrumb">
+                            <li>
+                                <i class="fa fa-dashboard"></i>  <a href="/admin">Dashboard</a>
+                            </li>
+                            <li class="active">
+                                <i class="fa fa-envelope"></i> Messages
+                            </li>
+                        </ol>
+                    </div>
+                    <!-- /.col-lg-12 -->
+                </div>
+                <!-- /.row -->
+    <div class="row">
+
+        <div class="col-sm-9 col-md-12">
+            <!-- Split button -->
+            <button id="refresh" type="button" class="btn btn-default" data-toggle="tooltip" title="Refresh">
+                   <span class="glyphicon glyphicon-refresh"></span>   </button>
+            <!-- Single button -->
+            <div class="btn-group">
+                <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+                    More <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu" role="menu">
+                    <li><a href="#">Mark all as read</a></li>
+                    <li class="divider"></li>
+                    <li class="text-center"><small class="text-muted">Select messages to see more actions</small></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+
+        <div class="col-sm-9 col-md-12">
+    <hr />
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#home" data-toggle="tab"><span class="glyphicon glyphicon-inbox">
+                </span>Primary</a></li>
+
+            </ul>
+            <!-- Tab panes -->
+            <div class="tab-content">
+                <div class="tab-pane fade in active" id="home">
+                    <div class="list-group">
+                    %for message in messages:
+                        %read = "read" if message[3] == False else ""
+                        %dots = "..." if len(message[1]) > 30 else ""
+
+                        <a href="/admin/messages?show={{message[4]}}" class="list-group-item {{read}}">
+                            <span class="glyphicon glyphicon-star-empty"></span><span class="name" style="min-width: 120px;
+                                display: inline-block;">{{message[0]}}</span> <span class="">{{message[1][0:30]}}{{dots}}</span>
+                            <span class="text-muted" style="font-size: 11px;">- {{message[1][0:15]}}...</span> <span
+                                class="badge">{{str(message[2])[:-10]}}</span></a>
+                    %end
+
+              <div class="panel-footer">
+                <div class="row">
+                  <div class="col col-xs-4">Page {{page}} of {{pages}}
+                  </div>
+                  <div class="col col-xs-8">
+                    <ul class="pagination hidden-xs pull-right">
+                    <li>
+                    %if page > 1:
+                       <a href="/admin/messages?page={{page-1}}">&laquo;</a>
+                    %else:
+                        <a>&laquo;</a>
+                    %end
+                    </li>
+
+                      %for i in range(1, pages + 1):
+                          %if i == page:
+                              <li class="active"><a href="/admin/users?page={{i}}">{{i}}</a></li>
+                          %else:
+                              <li><a href="/admin/messages?page={{i}}">{{i}}</a></li>
+                          %end
+                      %end
+
+                      <li>
+                      %if page < pages:
+                          <a href="/admin/messages?page={{page+1}}">&raquo;</a>
+                      %else:
+                          <a>&raquo;</a>
+                      %end
+                      </li>
+
+                    </ul>
+
+                  </div>
+                </div>
+              </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- /#page-wrapper -->
+
+    </div>
+    <!-- /#wrapper -->
+
+%include("./views/admin/footer.html")
