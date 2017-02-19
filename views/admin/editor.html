@@ -1,0 +1,76 @@
+%include("./views/admin/header.html")
+  <link rel="stylesheet" href="/vendor/summernote/summernote.css">
+
+        <!-- Page Content -->
+        <div id="page-wrapper">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <h1 class="page-header">Editor</h1>
+                    </div>
+                    <!-- /.col-lg-12 -->
+                </div>
+                <!-- /.row -->
+
+                <!-- row -->
+                %id, title, subtitle, article, imgurl = article if article else [""]* 5
+                <div class="row">
+                    <div class="col-lg-12">
+                        <form action="/admin/editor?m={{mode}}" class="form-horizontal" method="POST">
+                          <div class="form-group">
+                            <label for="input">Title</label>
+                            <div class="input-group">
+                              <div class="input-group-addon">
+                                  <i class="fa fa-header"></i>
+                                </div>
+                                %if article:
+                                <input type="hidden" value="{{id}}" name="id">
+                                %end
+                                <input type="text" name="title" value="{{title}}" class="form-control" required>
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label for="input">Subtitle</label>
+                            <div class="input-group">
+                              <div class="input-group-addon">
+                                  <i class="fa fa-font"></i>
+                                </div>
+                                <input type="text" class="form-control" name="subtitle" value="{{subtitle}}">
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label for="input">Header image url</label>
+                            <div class="input-group">
+                              <div class="input-group-addon">
+                                  <i class="fa fa-link"></i>
+                                </div>
+                                <input type="url" class="form-control" name="imgurl" value="{{imgurl}}" required>
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label for="contents">Contents</label>
+                            <textarea name="article" class="summernote" id="contents" title="Contents" required>{{article}}</textarea>
+                          </div>
+                          <div class="pull-right">
+                                      <div class="col-xs-5">
+
+                          <button type="submit" name="btnval" value="1" class="btn btn-warning">Save as Draft</button>
+                                      </div>
+                                      <div class="col-xs-7">
+                          <button type="submit" name="btnval" value="0" class="btn btn-primary">Publish Post</button>
+                                      </div>
+                                      </div>
+                        </form>
+
+                    </div>
+                </div>
+            </div>
+                        <br>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- /#page-wrapper -->
+
+    </div>
+    <!-- /#wrapper -->
+
+%include("./views/admin/footer.html")

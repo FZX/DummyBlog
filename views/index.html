@@ -38,15 +38,18 @@
                 %end
                 <!-- Pager -->
                 <ul class="pager">
+                    %search = "?q="+search if search else ""
                     %if current_page > 1:
                     <li class="previous">
-                        <a href="{{current_page - 1}}">&larr;Newest Posts </a>
+                        <a href="{{current_page - 1}}{{search}}">&larr;Newest Posts </a>
                     </li>
                     %end
-                    %page = current_page + 1 if current_page < max_pages else ""
+                    %if current_page < max_pages:
+                           %page = current_page + 1
                     <li class="next">
-                        <a href="{{page}}">Older Posts &rarr;</a>
+                        <a href="{{page}}{{search}}">Older Posts &rarr;</a>
                     </li>
+                    %end
                 </ul>
             </div>
         </div>

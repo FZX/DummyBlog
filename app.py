@@ -6,7 +6,7 @@ import gevent.monkey
 gevent.monkey.patch_all()
 
 from bottle import (route, run, template, static_file, request, response,
-                    error, install, redirect)
+                    error, install, redirect, BaseRequest)
 from bottle.ext.sqlalchemy import Plugin
 from math import ceil
 from uuid import uuid4
@@ -103,7 +103,7 @@ on_page_articles = 5
 # cookie_secret = "`m^2nkxJ>kU}>?NJWb(7'WF}(]p@?/f$2qVS))`"
 cookie_secret = "dada"
 cookie_age = 604800
-
+BaseRequest.MEMFILE_MAX = 1024 * 1024
 #### Functions ####
 
 def check_session():
@@ -117,12 +117,18 @@ def check_session():
     return None
 
 
-def select_articles(page=None):
+def select_articles(page=None, search=None):
     offset_num = on_page_articles
     if page:
         offset_num = on_page_articles * page
 
-    article_count = session.query(func.count(Article.id)).first()
+    article_count = session.query(func.count(Article.id))
+    article_count = article_count.filter(Article.draft == False)
+    if search:
+        search = "%" + search + "%"
+        article_count = article_count.filter(or_(Article.title.ilike(search),
+                                                 Article.article.ilike(search)))
+    article_count = article_count.first()
 
     off_num = article_count[0] - offset_num
     off_num = off_num if off_num >= 0 else 0
@@ -130,8 +136,37 @@ def select_articles(page=None):
     articles = session.query(Article.id, Article.title, Article.subtitle,
                              Article.created_on, Author.username, Author.id)
     articles = articles.outerjoin(Author)
+    if search:
+        search = "%" + search + "%"
+        articles = articles.filter(or_(Article.title.ilike(search),
+                                       Article.article.ilike(search)))
     articles = articles.order_by(Article.created_on)
     articles = articles.filter(Article.draft == False)
+    articles = articles.limit(on_page_articles)
+    articles = articles.offset(off_num)
+    articles = articles.all()
+
+    pages = ceil(article_count[0] / on_page_articles)
+
+    return articles[::-1], pages
+
+def admin_articles(author_id, draft, page=None):
+    offset_num = on_page_articles
+    if page:
+        offset_num = on_page_articles * page
+
+    article_count = session.query(func.count(Article.id))
+    # article_count = article_count.filter(and_(Article.author_id == author_id,
+    #                                           Article.draft == draft)).first()
+    article_count = article_count.filter(Article.author_id == author_id)
+    article_count = article_count.filter(Article.draft == draft).first()
+    off_num = article_count[0] - offset_num
+    off_num = off_num if off_num >= 0 else 0
+
+    articles = session.query(Article.id, Article.title, Article.created_on)
+    articles = articles.filter(Article.author_id == author_id)
+    articles = articles.filter(Article.draft == draft)
+    articles = articles.order_by(Article.created_on)
     articles = articles.limit(on_page_articles)
     articles = articles.offset(off_num)
     articles = articles.all()
@@ -152,9 +187,11 @@ def get_article(article_id):
 @route("/<page:int>")
 def index(page=None):
     page = page if page is not None else 1
-    articles, pages = select_articles(page=page)
+    search = request.query.q if request.query.q else None
+
+    articles, pages = select_articles(page=page, search=search)
     return template("./views/index.html", articles=articles, max_pages=pages,
-                    current_page=page)
+                    current_page=page, search=search)
 
 
 @route("/post/<id:int>")
@@ -233,56 +270,103 @@ def admin(db):
         redirect("/admin/login")
 
 
-@route("/admin/tables")
-def admin_tables():
+@route("/admin/editor")
+def admin_new_post(db):
     auth = check_session()
     if auth:
-        return template("./views/admin/tables.html")
+        editor = request.query.mode
+        mode = "new"
+        article = None
+        if editor == "edit":
+            id = request.query.id
+            mode = "edit"
+
+            query = db.query(Article.id, Article.title, Article.subtitle,
+                             Article.article, Article.header_image)
+            query = query.filter(and_(Article.id == id,
+                                      Article.author_id == auth[0]))
+            article = query.first()
+        return template("./views/admin/editor.html", mode=mode, article=article)
     else:
         redirect("/admin/login")
 
-@route("/admin/forms")
-def admin_forms():
+@route("/admin/editor", method="POST")
+def editor_action(db):
     auth = check_session()
     if auth:
-        return template("./views/admin/forms.html")
+        title = request.forms.title
+        subtitle = request.forms.subtitle
+        img_url = request.forms.imgurl
+        article = request.forms.article
+        draft = int(request.forms.btnval)
+        mode = request.query.m
+
+        if mode == "new":
+            new_post = Article(
+                title=title,
+                subtitle=subtitle,
+                article=article,
+                header_image=img_url,
+                draft=draft,
+                author_id=auth[0]
+            )
+            db.add(new_post)
+        elif mode == "edit":
+            id = request.forms.id
+
+            article = db.query(Article).filter(and_(Article.id == id,
+                                                    Article.author_id == auth[0]))
+            article = article.first()
+            print(article)
+            if article.draft == True and article.draft != draft:
+                article.created_on = datetime.now()
+            article.title = title
+            article.subtitle = subtitle
+            article.header_image = img_url
+            article.draft = draft
+
+        db.commit()
+        redirect("/admin/posts")
     else:
         redirect("/admin/login")
 
-@route("/admin/newpost")
-def admin_new_post():
+@route("/admin/view")
+@route("/admin/view/<page:int>")
+def admin_view(page=1):
     auth = check_session()
     if auth:
-        return template("./views/admin/blank.html")
+        mode = request.query.mode
+        if mode == "post":
+            articles = admin_articles(auth[0], draft=False, page=page)
+        elif mode == "draft":
+            articles = admin_articles(auth[0], draft=True, page=page)
+        else:
+            redirect("/admin")
+
+        return template("./views/admin/posts.html", articles=articles,
+                        page=page, mode=mode)
     else:
         redirect("/admin/login")
 
-@route("/admin/posts")
-def admin_posts():
+@route("/admin/remove", method="POST")
+def admin_remove(db):
     auth = check_session()
     if auth:
-        return template("./views/admin/blank.html")
+        id = request.forms.id
+        if id:
+            query = db.query(Article).filter(and_(Article.id == id,
+                                                  Article.author_id == auth[0]))
+            article = query.first()
+            db.delete(article)
+            db.commit()
+            return {"status": "success"}
+        else:
+            return {"status": "fail"}
     else:
-        redirect("/admin/login")
-
-@route("/admin/drafts")
-def admin_drafts():
-    auth = check_session()
-    if auth:
-        return template("./views/admin/blank.html")
-    else:
-        redirect("/admin/login")
+        return {"status": "you do not have rights!"}
 
 @route("/admin/messages")
 def admin_messages():
-    auth = check_session()
-    if auth:
-        return template("./views/admin/blank.html")
-    else:
-        redirect("/admin/login")
-
-@route("/admin/blank")
-def admin_blank():
     auth = check_session()
     if auth:
         return template("./views/admin/blank.html")
@@ -333,8 +417,6 @@ def admin_logout(db):
         redirect("/")
     else:
         reirect("/")
-
-
 
 
 #### Static files #####

@@ -10,6 +10,22 @@
 
     <!-- Custom Theme JavaScript -->
     <script src="/dummy/js/sb-admin-2.js"></script>
+  <script type="text/javascript" src="/vendor/summernote/summernote.js"></script>
+  <script type="text/javascript">
+    $(function() {
+      $('.summernote').summernote({
+        height: 200,
+        tabsize: 2
+      });
+
+      <!-- $('form').on('submit', function (e) { -->
+      <!--   e.preventDefault(); -->
+      <!--   alert($('.summernote').summernote('code')); -->
+      <!--   alert($('.summernote').val()); -->
+      <!-- }); -->
+    });
+  </script>
+    <script src="/dummy/js/adminview.js"></script>
 
 </body>
 
