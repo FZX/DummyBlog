@@ -190,13 +190,13 @@ def index(page=None):
 
     articles, pages = select_articles(page=page, search=search)
     return template("./views/index.html", articles=articles, max_pages=pages,
-                    current_page=page, search=search)
+                    current_page=page, search=search, page="index")
 
 
 @route("/post/<id:int>")
 def post(id):
     article = get_article(id)
-    return template("./views/post.html", article=article)
+    return template("./views/post.html", article=article, page="post")
 
 
 @route("/about")
@@ -313,19 +313,22 @@ def editor_action(db):
             db.add(new_post)
         elif mode == "edit":
             id = request.forms.id
+            if len(id) is 0:
+                redirect("/admin/editor")
 
-            article = db.query(Article).filter(and_(Article.id == id,
+            post = db.query(Article).filter(and_(Article.id == id,
                                                     Article.author_id == auth[0]))
-            article = article.first()
-            if article.draft == True and article.draft != draft:
-                article.created_on = datetime.now()
-            article.title = title
-            article.subtitle = subtitle
-            article.header_image = img_url
-            article.draft = draft
+            post = post.first()
+            if post.draft == True and post.draft != draft:
+                post.created_on = datetime.now()
+            post.title = title
+            post.subtitle = subtitle
+            post.header_image = img_url
+            post.article = article
+            post.draft = draft
 
         db.commit()
-        redirect("/admin/posts")
+        redirect("/admin/view?mode=post")
     else:
         redirect("/admin/login")
 
@@ -451,12 +454,9 @@ def admin_settings_update(db):
             if email:
                 author.email = email
             if oldpassword:
-                print(oldpassword, "old")
                 md_oldpassword = crypt(oldpassword, salt="MD5")
                 if md_oldpassword == author.password:
-                    print("match")
                     if newpassword:
-                        print("new", newpassword)
                         md_newpassword = crypt(newpassword, salt="MD5")
                         author.password = md_newpassword
                     else:
