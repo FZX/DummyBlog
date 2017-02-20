@@ -201,12 +201,12 @@ def post(id):
 
 @route("/about")
 def about():
-    return template("./views/about.html")
+    return template("./views/about.html", page="about")
 
 
 @route("/contact")
 def contact():
-    return template("./views/contact.html")
+    return template("./views/contact.html", page="about")
 
 
 @route("/contact", method="POST")
@@ -519,28 +519,36 @@ def get_images(filename):
 
     returning static files from img folder.
     """
-    return static_file(filename, root="./views/static/img")
+    response = static_file(filename, root="./views/static/img")
+    response.set_header("Cache-Control", "public, max-age=25920000")
+    return response
 
 @route("/dummy/<filename:path>")
 def get_css_js(filename):
     """Callback for static files.
 
     return css and js files"""
-    return static_file(filename, root="./views/static/dummy")
+    response = static_file(filename, root="./views/static/dummy")
+    response.set_header("Cache-Control", "public, max-age=25920000")
+    return response
 
 @route("/vendor/<filename:path>")
 def get_vendor(filename):
     """Callback for static files.
 
     return vendor files"""
-    return static_file(filename, root="./views/static/vendor")
+    response = static_file(filename, root="./views/static/vendor")
+    response.set_header("Cache-Control", "public, max-age=25920000")
+    return response
 
 @route("/fonts/<filename>")
 def get_fonts(filename):
     """Callback for static files.
 
     return font files"""
-    return static_file(filename, root="./views/static/fonts")
+    response = static_file(filename, root="./views/static/fonts")
+    response.set_header("Cache-Control", "public, max-age=25920000")
+    return response
 
 
 if __name__ == "__main__":

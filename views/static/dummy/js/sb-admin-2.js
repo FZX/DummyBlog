@@ -59,3 +59,4 @@ $(".message").on("click", "#removeMessage", function(){
         location.replace("/admin/messages");
     });
 });
+$('iframe').wrapAll('<div class="embed-responsive embed-responsive-16by9">');
