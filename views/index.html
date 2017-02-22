@@ -8,7 +8,8 @@
             <div class="row">
                 <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
                     <div class="site-heading">
-                        <h1>Dummy Blog</h1>
+                        %bname = "Posts by " + articles[0][4] if len(au) > 0 else "Dummy Blog"
+                        <h1>{{bname}}</h1>
                         <hr class="small">
                         <span class="subheading">A Dummy Blog Learn much more</span>
                     </div>
@@ -32,7 +33,7 @@
                             {{subtitle}}
                         </h3>
                     </a>
-                    <p class="post-meta">Posted by <a href="/authors/{{article[5]}}">{{article[4]}}</a> on {{str(article[3])[:-10]}}</p>
+                    <p class="post-meta">Posted by <a href="/?author={{article[5]}}">{{article[4]}}</a> on {{str(article[3])[:-10]}}</p>
                 </div>
                 <hr>
                 %end

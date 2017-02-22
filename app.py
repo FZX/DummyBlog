@@ -119,7 +119,7 @@ def check_session():
     return None
 
 
-def select_articles(page=None, search=None):
+def select_articles(page=None, search=None, author=None):
     offset_num = on_page_articles
     if page:
         offset_num = on_page_articles * page
@@ -136,6 +136,10 @@ def select_articles(page=None, search=None):
                                        Article.article.ilike(search)))
         article_count = article_count.filter(or_(Article.title.ilike(search),
                                                  Article.article.ilike(search)))
+    if author:
+        articles = articles.filter(Article.author_id == author)
+        article_count = article_count.filter(Article.author_id == author)
+
     article_count = article_count.first()
     off_num = article_count[0] - offset_num
     off_num = off_num if off_num >= 0 else 0
@@ -184,13 +188,15 @@ def get_article(article_id):
 
 @route("/")
 @route("/<page:int>")
-def index(page=None):
-    page = page if page is not None else 1
-    search = request.query.q if request.query.q else None
+def index(page=1):
+    # page = page if page is not None else 1
+    # search = request.query.q if request.query.q else None
+    search = request.query.q
+    authors = request.query.author
 
-    articles, pages = select_articles(page=page, search=search)
+    articles, pages = select_articles(page=page, search=search, author=authors)
     return template("./views/index.html", articles=articles, max_pages=pages,
-                    current_page=page, search=search, page="index")
+                    current_page=page, search=search, page="index", au=authors)
 
 
 @route("/post/<id:int>")
