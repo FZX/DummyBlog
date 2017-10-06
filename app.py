@@ -5,101 +5,27 @@
 import gevent.monkey
 gevent.monkey.patch_all()
 
-from bottle import (route, run, template, static_file, request, response,
-                    error, install, redirect, BaseRequest)
+from bottle import (route, run, template, static_file,
+                    request, response, install, redirect, BaseRequest)
 from bottle.ext.sqlalchemy import Plugin
 from math import ceil
 from uuid import uuid4
 from crypt import crypt
 from datetime import datetime
 
-from sqlalchemy import (Table, Column, Integer, String, DateTime, ForeignKey,
-                        Boolean, create_engine, desc, func, Sequence,
-                        and_, or_)
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy import (create_engine, func, and_, or_)
+from sqlalchemy.orm import sessionmaker
+import models
 
-Base = declarative_base()
 engine = create_engine("sqlite:///./blog.db")
-plugin = Plugin(engine, Base.metadata, keyword="db", create=True)
+models.Base.metadata.create_all(engine)
+plugin = Plugin(engine, models.Base.metadata, keyword="db", create=True)
 install(plugin)
 
 Session = sessionmaker(bind=engine)
 session = Session()
 
 
-class Article(Base):
-    __tablename__ = "articles"
-
-    id = Column(Integer(), Sequence("articles_id_seq"), primary_key=True)
-    title = Column(String(1000), index=True)
-    subtitle = Column(String(500), index=True)
-    header_image = Column(String(500))
-    article = Column(String(), index=True)
-    draft = Column(Boolean(), default=False)
-    category_id = Column(Integer(), ForeignKey("category.id"), default=1)
-    author_id = Column(Integer(), ForeignKey("authors.id"))
-    created_on = Column(DateTime(), default=datetime.now)
-    updated_on = Column(DateTime(), default=datetime.now, onupdate=datetime.now)
-
-
-    def __repr__(self):
-        return "Article(title='{self.title}', " \
-            "subitle='{self.subtitle}', " \
-            "author_id='{self.author_id}', " \
-            "category_id={self.category_id})".format(self=self)
-
-class Author(Base):
-    __tablename__ = "authors"
-
-    id = Column(Integer(), Sequence("authors_id_seq"), primary_key=True)
-    username = Column(String(15), nullable=False, unique=True)
-    firstname = Column(String(15), nullable=False)
-    lastname = Column(String(15), nullable=False)
-    password = Column(String(25), nullable=False)
-    email = Column(String(255), nullable=False, unique=True)
-    session_id = Column(String(36))
-    created_on = Column(DateTime(), default=datetime.now)
-    updated_on = Column(DateTime(), default=datetime.now, onupdate=datetime.now)
-
-    def __repr__(self):
-        return "Author(username='{self.username}', " \
-            "email='{self.email}')".format(self=self)
-
-class Category(Base):
-    __tablename__ = "category"
-
-    id = Column(Integer(), primary_key=True)
-    name = Column(String(255), nullable=False, unique=True)
-    created_on = Column(DateTime(), default=datetime.now)
-
-    def __repr__(self):
-        return "Category_id(name={self.id}, " \
-            "name={self.name})".format(self=self)
-
-
-class Contact(Base):
-    __tablename__ = "contact"
-
-    id = Column(Integer(), Sequence('contact_id_seq'), primary_key=True)
-    name = Column(String(100), nullable=False)
-    message = Column(String(500), nullable=False)
-    email = Column(String(100), nullable=False)
-    guest_ip = Column(String(255), nullable=True)
-    seen = Column(Boolean(), default=False)
-    created_on = Column(DateTime(), default=datetime.now)
-
-    def __repr__(self):
-        return "subject(user_id={self.subject}, " \
-            "message={self.message})".format(self=self)
-
-class Settings(Base):
-    __tablename__ = "settings"
-
-    id = Column(Integer(), Sequence('settings_id_seq'), primary_key=True)
-    site_name = Column(String(300), default="Best blog ever.")
-    site_subname = Column(String(300), default="Most amazing things is here.")
-    updated_on = Column(DateTime(), default=datetime.now, onupdate=datetime.now)
 
 #### Settings global variables ####
 on_page_articles = 5
@@ -112,8 +38,8 @@ def check_session():
 
     session_id = request.get_cookie("sessid", secret=cookie_secret)
     if session_id:
-        author = session.query(Author.id, Author.username)
-        author = author.filter(Author.session_id == session_id).first()
+        author = session.query(models.Author.id, models.Author.username)
+        author = author.filter(models.Author.session_id == session_id).first()
         if author:
             return author.id, author.username
     return None
@@ -124,27 +50,28 @@ def select_articles(page=None, search=None, author=None):
     if page:
         offset_num = on_page_articles * page
 
-    article_count = session.query(func.count(Article.id))
-    article_count = article_count.filter(Article.draft == False)
+    article_count = session.query(func.count(models.Article.id))
+    article_count = article_count.filter(models.Article.draft == False)
 
-    articles = session.query(Article.id, Article.title, Article.subtitle,
-                             Article.created_on, Author.username, Author.id)
-    articles = articles.outerjoin(Author)
+    articles = session.query(models.Article.id, models.Article.title,
+                             models.Article.subtitle, models.Article.created_on,
+                             models.Author.username, models.Author.id)
+    articles = articles.outerjoin(models.Author)
     if search:
         search = "%" + search + "%"
-        articles = articles.filter(or_(Article.title.ilike(search),
-                                       Article.article.ilike(search)))
-        article_count = article_count.filter(or_(Article.title.ilike(search),
-                                                 Article.article.ilike(search)))
+        articles = articles.filter(or_(models.Article.title.ilike(search),
+                                       models.article.ilike(search)))
+        article_count = article_count.filter(or_(models.Article.title.ilike(search),
+                                                 models.Article.article.ilike(search)))
     if author:
-        articles = articles.filter(Article.author_id == author)
-        article_count = article_count.filter(Article.author_id == author)
+        articles = articles.filter(models.Article.author_id == author)
+        article_count = article_count.filter(models.Article.author_id == author)
 
     article_count = article_count.first()
     off_num = article_count[0] - offset_num
     off_num = off_num if off_num >= 0 else 0
-    articles = articles.order_by(Article.created_on)
-    articles = articles.filter(Article.draft == False)
+    articles = articles.order_by(models.Article.created_on)
+    articles = articles.filter(models.Article.draft == False)
     articles = articles.limit(on_page_articles)
     articles = articles.offset(off_num)
     articles = articles.all()
@@ -158,18 +85,19 @@ def admin_articles(author_id, draft, page=None):
     if page:
         offset_num = on_page_articles * page
 
-    article_count = session.query(func.count(Article.id))
+    article_count = session.query(func.count(models.Article.id))
     # article_count = article_count.filter(and_(Article.author_id == author_id,
     #                                           Article.draft == draft)).first()
-    article_count = article_count.filter(Article.author_id == author_id)
-    article_count = article_count.filter(Article.draft == draft).first()
+    article_count = article_count.filter(models.Article.author_id == author_id)
+    article_count = article_count.filter(models.Article.draft == draft).first()
     off_num = article_count[0] - offset_num
     off_num = off_num if off_num >= 0 else 0
 
-    articles = session.query(Article.id, Article.title, Article.created_on)
-    articles = articles.filter(Article.author_id == author_id)
-    articles = articles.filter(Article.draft == draft)
-    articles = articles.order_by(Article.created_on)
+    articles = session.query(models.Article.id,
+                             models.Article.title, models.Article.created_on)
+    articles = articles.filter(models.Article.author_id == author_id)
+    articles = articles.filter(models.Article.draft == draft)
+    articles = articles.order_by(models.Article.created_on)
     articles = articles.limit(on_page_articles)
     articles = articles.offset(off_num)
     articles = articles.all()
@@ -179,9 +107,9 @@ def admin_articles(author_id, draft, page=None):
     return articles[::-1], pages
 
 def get_article(article_id):
-    query = session.query(Article, Author.id, Author.username)
-    query = query.outerjoin(Author)
-    query = query.filter(Article.id == article_id)
+    query = session.query(models.Article, models.Author.id, models.Author.username)
+    query = query.outerjoin(models.Author)
+    query = query.filter(models.Article.id == article_id)
     article = query.first()
     return article
 
@@ -222,7 +150,7 @@ def contact_me(db):
     message = request.forms.message
     ip = request.environ.get("REMOTE_ADDR")
 
-    data = Contact(
+    data = models.Contact(
         name=name,
         message=message,
         email=email,
@@ -237,31 +165,32 @@ def contact_me(db):
 def admin(db):
     auth = check_session()
     if auth:
-        count_posts = db.query(func.count(Article.id))
-        count_posts = count_posts.filter(Article.draft == False).first()
+        count_posts = db.query(func.count(models.Article.id))
+        count_posts = count_posts.filter(models.Article.draft == False).first()
 
-        count_drafts = db.query(func.count(Article.id))
-        count_drafts = count_drafts.filter(Article.draft == True).first()
+        count_drafts = db.query(func.count(models.Article.id))
+        count_drafts = count_drafts.filter(models.Article.draft == True).first()
 
-        count_m = db.query(func.count(Contact.id))
-        total_new_m = count_m.filter(Contact.seen == False).first()
+        count_m = db.query(func.count(models.Contact.id))
+        total_new_m = count_m.filter(models.Contact.seen == False).first()
         total_messages = count_m.first()
 
-        latest_article = db.query(Article.title, Article.article,
-                               Article.created_on)
-        latest_post = latest_article.filter(Article.draft == False)
-        latest_post = latest_post.order_by(Article.id.desc()).limit(1).first()
+        latest_article = db.query(models.Article.title, models.Article.article,
+                               models.Article.created_on)
+        latest_post = latest_article.filter(models.Article.draft == False)
+        latest_post = latest_post.order_by(models.Article.id.desc()).limit(1).first()
 
-        latest_draft = latest_article.filter(Article.draft == True)
-        latest_draft = latest_draft.order_by(Article.id.desc()).limit(1).first()
+        latest_draft = latest_article.filter(models.Article.draft == True)
+        latest_draft = latest_draft.order_by(models.Article.id.desc()).limit(1).first()
 
-        message = db.query(Contact.email, Contact.message, Contact.created_on)
-        newest_message = message.filter(Contact.seen == False)
-        newest_message = newest_message.order_by(Contact.id.desc()).limit(1)
+        message = db.query(models.Contact.email,
+                           models.Contact.message, models.Contact.created_on)
+        newest_message = message.filter(models.Contact.seen == False)
+        newest_message = newest_message.order_by(models.Contact.id.desc()).limit(1)
         newest_message = newest_message.first()
 
-        newest_seen_message = message.filter(Contact.seen == True)
-        newest_seen_message = newest_seen_message.order_by(Contact.id.desc())
+        newest_seen_message = message.filter(models.Contact.seen == True)
+        newest_seen_message = newest_seen_message.order_by(models.Contact.id.desc())
         newest_seen_message = newest_seen_message.limit(1)
         newest_seen_message = newest_seen_message.first()
 
@@ -287,10 +216,10 @@ def admin_new_post(db):
             id = request.query.id
             mode = "edit"
 
-            query = db.query(Article.id, Article.title, Article.subtitle,
-                             Article.article, Article.header_image)
-            query = query.filter(and_(Article.id == id,
-                                      Article.author_id == auth[0]))
+            query = db.query(models.Article.id, models.Article.title, models.Article.subtitle,
+                             models.Article.article, models.Article.header_image)
+            query = query.filter(and_(models.Article.id == id,
+                                      models.Article.author_id == auth[0]))
             article = query.first()
         return template("./views/admin/editor.html", mode=mode, article=article)
     else:
@@ -308,7 +237,7 @@ def editor_action(db):
         mode = request.query.m
 
         if mode == "new":
-            new_post = Article(
+            new_post = models.Article(
                 title=title,
                 subtitle=subtitle,
                 article=article,
@@ -322,8 +251,8 @@ def editor_action(db):
             if len(id) is 0:
                 redirect("/admin/editor")
 
-            post = db.query(Article).filter(and_(Article.id == id,
-                                                    Article.author_id == auth[0]))
+            post = db.query(models.Article).filter(and_(models.Article.id == id,
+                                                        models.Article.author_id == auth[0]))
             post = post.first()
             if post.draft == True and post.draft != draft:
                 post.created_on = datetime.now()
@@ -362,8 +291,8 @@ def admin_remove(db):
     if auth:
         id = request.forms.id
         if id:
-            query = db.query(Article).filter(and_(Article.id == id,
-                                                  Article.author_id == auth[0]))
+            query = db.query(models.Article).filter(and_(models.Article.id == id,
+                                                  models.Article.author_id == auth[0]))
             article = query.first()
             db.delete(article)
             db.commit()
@@ -380,7 +309,7 @@ def admin_messages(db, page=None):
     if auth:
         show = request.query.show
         if show:
-            message = db.query(Contact).filter(Contact.id == show).first()
+            message = db.query(models.Contact).filter(models.Contact.id == show).first()
             message.seen = True
             return template("./views/admin/message-show.html", message=message)
         else:
@@ -389,11 +318,14 @@ def admin_messages(db, page=None):
             if page:
                 offset_num = 10 * page
 
-            messages_count = db.query(func.count(Contact.id)).first()
+            messages_count = db.query(func.count(models.Contact.id)).first()
             off_num = messages_count[0] - offset_num
             off_num = off_num if off_num >= 0 else 0
 
-            messages = db.query(Contact.name, Contact.message, Contact.created_on, Contact.seen, Contact.id)
+            messages = db.query(models.Contact.name,
+                                models.Contact.message,
+                                models.Contact.created_on,
+                                models.Contact.seen, models.Contact.id)
             messages = messages.limit(10)
             messages = messages.offset(off_num)
             messages = messages.all()
@@ -410,7 +342,7 @@ def remove_message(db):
     auth = check_session()
     if auth:
         msgid = request.forms.msgid
-        message = db.query(Contact).filter(Contact.id == msgid).first()
+        message = db.query(models.Contact).filter(models.Contact.id == msgid).first()
         db.delete(message)
         db.commit()
         return {"status": "OK"}
@@ -424,7 +356,7 @@ def admin_settings(db):
     if auth:
         mode = request.query.mode
         if mode == "user":
-            author = db.query(Author).filter(Author.id == auth[0]).first()
+            author = db.query(models.Author).filter(models.Author.id == auth[0]).first()
 
             return template("./views/admin/usersettings.html", user=author)
 
@@ -449,7 +381,7 @@ def admin_settings_update(db):
                 and not newpassword and not oldpassword):
                 redirect("/admin")
 
-            author = db.query(Author).filter(Author.id == auth[0]).first()
+            author = db.query(models.Author).filter(models.Author.id == auth[0]).first()
 
             if firstname:
                 author.firstname = firstname
@@ -489,8 +421,8 @@ def admin_do_login(db):
     if username == "" or password == "":
         return {"status": "FAIL"}
 
-    check_user = db.query(Author).filter(and_(Author.username == username,
-                                              Author.password == password))
+    check_user = db.query(models.Author).filter(and_(models.Author.username == username,
+                                                     models.Author.password == password))
     check_user = check_user.first()
 
     if check_user:
@@ -508,14 +440,14 @@ def admin_do_login(db):
 def admin_logout(db):
     auth = check_session()
     if auth is not None:
-        author = db.query(Author).filter(Author.id == auth[0])
+        author = db.query(models.Author).filter(models.Author.id == auth[0])
         author = author.first()
         author.session_id = str(uuid4())
         db.commit()
         response.set_cookie("sessid", "", secret=cookie_secret)
         redirect("/")
     else:
-        reirect("/")
+        redirect("/")
 
 
 #### Static files #####
